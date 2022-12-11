@@ -52,14 +52,7 @@ def rotate_pix(xpix, ypix, yaw):
 
 def translate_pix(xpix_rot, ypix_rot, xpos, ypos, scale): 
     # Apply a scaling and a translation
-    xdef rock_thresh(img):
-    not_mountain = color_thresh(img, (100,100,0))
-    not_nav = 1 - color_thresh(img, (0,0,70))
-    rock = np.zeros(not_nav.shape)
-    for idx, i in np.ndenumerate(not_nav):
-        rock[idx] = not_nav[idx] and not_mountain[idx]
-    return rock
-def obstacle_thresh(img, pix_translated = (xpix_rot / scale) + xpos
+    xpix_translated = (xpix_rot / scale) + xpos
     ypix_translated = (ypix_rot / scale) + ypos
     # Return the result  
     return xpix_translated, ypix_translated
