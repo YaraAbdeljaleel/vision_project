@@ -117,9 +117,15 @@ def perception_step(Rover):
                               [image.shape[1] / 2 - dst_size, image.shape[0] - 2 * dst_size - bottom_offset],
                               ])
     thresh = (160, 142, 130)
+     intentional_black = False
+    if Rover.pitch > 1:
+        intentional_black = True
+        thresh = (255,255,255)
+        
 
     # 2) Apply perspective transform
     bird_eye = perspect_transform(Rover.img, source, destination)
+     bird_eye[0:100, :, :] = np.zeros_like(bird_eye[0:100, :, :].shape)
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     navigable_threshhold = color_thresh(bird_eye, thresh)
     obstacles = obstacle_thresh(bird_eye, (105, 88, 78))
@@ -155,8 +161,10 @@ def perception_step(Rover):
     # Rover.nav_dists = rover_centric_pixel_distances
     # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists, Rover.nav_angles = to_polar_coords(nav_rov_x, nav_rov_y)
-
-
+    if intentional_black:
+        Rover.nav_angles = Rover.last_thetas
+        
+        
 
       # 8) Update Rover.vision_image (this will be displayed on left side of screen)
       # Example: Rover.vision_image[:,:,0] = obstacle color-thresholded binary image
