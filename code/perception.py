@@ -19,6 +19,29 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Return the binary image
     return color_select
 
+#function for rock thershold 
+def rock_thresh(img):
+    not_mountain = color_thresh(img, (100,100,0))
+    not_nav = 1 - color_thresh(img, (0,0,70))
+    rock = np.zeros(not_nav.shape)
+    for idx, i in np.ndenumerate(not_nav):
+        rock[idx] = not_nav[idx] and not_mountain[idx]
+    return rock
+
+#function for obstcale threshold 
+def obstacle_thresh(img, rgb_thresh=(160, 160, 160)):
+    # Create an array of zeros with the same xy size as img, but single channel
+    color_select = np.zeros_like(img[:,:,0])
+    # Require that each pixel be below all three threshold values in rbg_thresh.
+    #   Values below the threshold will now contain a boolean array with TRUE.
+    below_thresh = ((img[:,:,0] < rgb_thresh[0]) &
+                    (img[:,:,1] < rgb_thresh[1]) &
+                    (img[:,:,2] < rgb_thresh[2]))
+    # Index the array of zeros with the boolean array and set to 1
+    color_select[below_thresh] = 1
+    return color_select
+
+
 # Define a function to convert from image coords to rover coords
 def rover_coords(binary_img):
     # Identify nonzero pixels
@@ -79,25 +102,6 @@ def perspect_transform(img, src, dst):
     
     return warped
 
-def rock_thresh(img):
-    not_mountain = color_thresh(img, (100,100,0))
-    not_nav = 1 - color_thresh(img, (0,0,70))
-    rock = np.zeros(not_nav.shape)
-    for idx, i in np.ndenumerate(not_nav):
-        rock[idx] = not_nav[idx] and not_mountain[idx]
-    return rock
-def obstacle_thresh(img, rgb_thresh=(160, 160, 160)):
-    # Create an array of zeros with the same xy size as img, but single channel
-    color_select = np.zeros_like(img[:,:,0])
-    # Require that each pixel be below all three threshold values in rbg_thresh.
-    #   Values below the threshold will now contain a boolean array with TRUE.
-    below_thresh = ((img[:,:,0] < rgb_thresh[0]) &
-                    (img[:,:,1] < rgb_thresh[1]) &
-                    (img[:,:,2] < rgb_thresh[2]))
-    # Index the array of zeros with the boolean array and set to 1
-    color_select[below_thresh] = 1
-    return color_select
-
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
     # Perform perception steps to update Rover()
@@ -115,6 +119,8 @@ def perception_step(Rover):
                   [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size - bottom_offset],
                   ])
     thresh = (160, 142, 130)
+
+    
     intentional_black = False
     if Rover.pitch > 1:
         intentional_black = True
