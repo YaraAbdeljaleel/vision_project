@@ -33,5 +33,16 @@ def decision_step(Rover):
             
     elif Rover.mode == "stop":
         print("stop")
+        # stop the Rover
+        Rover.throttle = 0
+        Rover.brake = Rover.brake_set
+        # if the rover is not moving rotate
+        if Rover.vel <= 0.2:
+            Rover.steer = -15
+            Rover.brake = 0
+            if len(Rover.nav_angles) > Rover.go_forward:
+                Rover.mode = "stay"
+                Rover.steer = 0
+
        
     return Rover
