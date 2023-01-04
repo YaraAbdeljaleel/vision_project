@@ -1,45 +1,78 @@
 import numpy as np
+import matplotlib
 import cv2
 
 DEBBUGING_MODE = True
 
-# Identify pixels above the threshold
-# Threshold of RGB > 160 does a nice job of identifying ground pixels only
-def color_thresh(img, rgb_thresh=(160, 160, 160)):
+# Threshold using hsv values
+def color_thresh(img,  nav_hi=(256,50,256),nav_lo=(0,0,190)):
     # Create an array of zeros same xy size as img, but single channel
-    color_select = np.zeros_like(img[:,:,0])
-    # Require that each pixel be above all three threshold values in RGB
-    # above_thresh will now contain a boolean array with "True"
-    # where threshold was met
-    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
-                & (img[:,:,1] > rgb_thresh[1]) \
-                & (img[:,:,2] > rgb_thresh[2])
+    color_select = np.zeros_like(img[:, :, 0])
+
+    # To account for unusual matplotlib HSV settings, use this hack(H and S are 0.0-1.0, but V is 0-255 )
+    # because we use function in matplotlib that convert float rgb values (in the range [0, 1]), in a numpy array to hsv values.
+    nav_hi = (nav_hi[0] / 255.0, nav_hi[1] / 255.0, nav_hi[2])
+    nav_lo = (nav_lo[0] / 255.0, nav_lo[1] / 255.0, nav_lo[2])
+
+    # Convert RGB image to HSV (using matplotlib function)
+    hsv_img = matplotlib.colors.rgb_to_hsv(img)
+
+    # Apply threshholding (Low and High) for nav channel 
+ 
+    nav = (hsv_img[:, :, 0] >= nav_lo[0]) & (hsv_img[:, :, 0] <= nav_hi[0]) & \
+          (hsv_img[:, :, 1] >= nav_lo[1]) & (hsv_img[:, :, 1] <= nav_hi[1]) & \
+          (hsv_img[:, :, 2] >= nav_lo[2]) & (hsv_img[:, :, 2] <= nav_hi[2])
     # Index the array of zeros with the boolean array and set to 1
-    color_select[above_thresh] = 1
+    color_select[nav] = 1
     # Return the binary image
     return color_select
 
-#function for rock thershold 
-def rock_thresh(img):
-    not_mountain = color_thresh(img, (100,100,0))
-    not_nav = 1 - color_thresh(img, (0,0,70))
-    rock = np.zeros(not_nav.shape)
-    for idx, i in np.ndenumerate(not_nav):
-        rock[idx] = not_nav[idx] and not_mountain[idx]
-    return rock
+def rock_thresh(img,  rock_hi=(40,256,256),rock_lo=(25,140,120)):
 
-#function for obstcale threshold 
-def obstacle_thresh(img, rgb_thresh=(160, 160, 160)):
+   color_select = np.zeros_like(img[:, :, 0])
+   # To account for unusual matplotlib HSV settings, use this hack(H and S are 0.0-1.0, but V is 0-255 )
+   # because we use function in matplotlib that convert float rgb values (in the range [0, 1]), in a numpy array to hsv values.
+   rock_hi = (rock_hi[0] / 255.0, rock_hi[1] / 255.0, rock_hi[2])
+   rock_lo = (rock_lo[0] / 255.0, rock_lo[1] / 255.0, rock_lo[2])
+
+   # Convert RGB image to HSV (using matplotlib function)
+   hsv_img = matplotlib.colors.rgb_to_hsv(img)
+
+   rock = (hsv_img[:, :, 0] >= rock_lo[0]) & (hsv_img[:, :, 0] <= rock_hi[0]) & \
+          (hsv_img[:, :, 1] >= rock_lo[1]) & (hsv_img[:, :, 1] <= rock_hi[1]) & \
+          (hsv_img[:, :, 2] >= rock_lo[2]) & (hsv_img[:, :, 2] <= rock_hi[2])
+
+   color_select[rock] = 1
+   return color_select
+
+
+def obstacle_thresh(img,  obs_hi=(256,256,90),obs_lo=(0,0,0)):
     # Create an array of zeros with the same xy size as img, but single channel
-    color_select = np.zeros_like(img[:,:,0])
-    # Require that each pixel be below all three threshold values in rbg_thresh.
+    color_select = np.zeros_like(img[:, :, 0])
+    
+    # To account for unusual matplotlib HSV settings, use this hack(H and S are 0.0-1.0, but V is 0-255 )
+    # because we use function in matplotlib that convert float rgb values (in the range [0, 1]), in a numpy array to hsv values.
+    obs_hi = (obs_hi[0] / 255.0, obs_hi[1] / 255.0, obs_hi[2])
+    obs_lo = (obs_lo[0] / 255.0, obs_lo[1] / 255.0, obs_lo[2])
+    
+    # Convert RGB image to HSV (using matplotlib function)
+    hsv_img = matplotlib.colors.rgb_to_hsv(img)
+
     #   Values below the threshold will now contain a boolean array with TRUE.
-    below_thresh = ((img[:,:,0] < rgb_thresh[0]) &
-                    (img[:,:,1] < rgb_thresh[1]) &
-                    (img[:,:,2] < rgb_thresh[2]))
+    # Apply threshholding (Low and High)
+    obs = (hsv_img[:, :, 0] >= obs_lo[0]) & (hsv_img[:, :, 0] <= obs_hi[0]) & \
+          (hsv_img[:, :, 1] >= obs_lo[1]) & (hsv_img[:, :, 1] <= obs_hi[1]) & \
+          (hsv_img[:, :, 2] >= obs_lo[2]) & (hsv_img[:, :, 2] <= obs_hi[2])
+    # Don't include  black pixels that not inditified by rover that is obstcales (just non-data from transform)
+    obs_nonzero = (img[:, :, 0] != 0) \
+                  | (img[:, :, 1] != 0) \
+                  | (img[:, :, 2] != 0)
+    obs = obs & obs_nonzero
     # Index the array of zeros with the boolean array and set to 1
-    color_select[below_thresh] = 1
+
+    color_select[obs] = 1
     return color_select
+
 
 
 # Define a function to convert from image coords to rover coords
@@ -118,22 +151,25 @@ def perception_step(Rover):
                   [image.shape[1]/2 + dst_size, image.shape[0] - 2*dst_size - bottom_offset], 
                   [image.shape[1]/2 - dst_size, image.shape[0] - 2*dst_size - bottom_offset],
                   ])
-    thresh = (160, 142, 130)
 
-    
+
+
+    nav_hi = (256, 50, 256)
+    nav_lo = (0, 0, 190)
     intentional_black = False
     if Rover.pitch > 1:
         intentional_black = True
-        thresh = (255,255,255)
+        nav_hi= (255, 255, 255)
+        nav_lo = (255, 255, 255)
     
     
     # 2) Apply perspective transform
     bird_eye = perspect_transform(image, source, destination)
     bird_eye[0:100, :, :] = np.zeros_like(bird_eye[0:100, :, :].shape)
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
-    navigable_threshhold = color_thresh(bird_eye, thresh)
+    navigable_threshhold = color_thresh(bird_eye,nav_hi,nav_lo)
     rock_threshhold = rock_thresh(bird_eye)
-    obstacles = obstacle_thresh(bird_eye, (160, 142, 130))
+    obstacles = obstacle_thresh(bird_eye)
 
 
     # 4) Convert map image pixel values to rover-centric coords
