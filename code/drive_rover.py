@@ -83,7 +83,7 @@ class RoverState():
         self.first_stuck = None # Record the first stuck time (throttle > 0 and vel = 0)
         self.just_got_stuck = False
         self.time_stuck = 3.0
-        self.frame_stablize=0 # a variable to let the rover stabilize before doing action again
+        self.rock_found = False
 # Initialize our rover 
 Rover = RoverState()
 
