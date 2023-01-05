@@ -25,7 +25,7 @@ def getRightDistance(nav_angles, nav_distance):
 
 
 def decision_step(Rover):
-    if Rover.nav_angles is not None:
+
         # There are three main modes of operation
         # Go to Edge (go)
         # Stay With Edge (stay)
@@ -41,35 +41,51 @@ def decision_step(Rover):
             if len(Rover.nav_angles) < 2000:
                 Rover.steer = 0
                 Rover.mode = "go"
+                
+                
+                
         elif Rover.mode == "go":
             print("go")
             # go to the wall
             Rover.steer = 0
             Rover.throttle = Rover.throttle_set
             # if the rover is close to a wall go to sop mode
-            if len(Rover.nav_angles) < Rover.go_forward:
+            print(Rover.nav_angles)
+            if len(Rover.nav_angles) < Rover.stop_forward:            
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
                 Rover.mode = "stop"
+                
+                
         elif Rover.mode == "stay":
             print("Stay With Edge")
             if len(Rover.nav_dists) > 0 and len(Rover.nav_angles) > 0:
+                Rover.brake = 0
                 Rover.throttle = Rover.throttle_set
                 left_distance = getLeftDistance(Rover.nav_angles, Rover.nav_dists)
                 right_distance = getRightDistance(Rover.nav_angles, Rover.nav_dists)
+                
                 target_distance = np.min([1.5, (left_distance + right_distance) / 2.0])
                 steerDif = left_distance - target_distance 
                 print("steer")
                 print(steerDif)
+                
                 if(steerDif > 0):
                         Rover.steer = np.clip(10*steerDif, -15, 10)
                 else:
                         Rover.steer = np.clip(30*steerDif, -15, 10)
-                if len(Rover.nav_angles) < Rover.go_forward:
+                if len(Rover.nav_angles) < Rover.stop_forward:
                     Rover.brake = Rover.brake_set
                     Rover.throttle = 0
                     Rover.mode = "stop"
-                
+                    
+            if Rover.rock_found and len(Rover.rock_dists) > 0 and np.mean(Rover.rock_dists) < 220:
+                Rover.brake = Rover.brake_set
+                Rover.throttle = 0
+                Rover.steer = 0
+                Rover.prev_mode = Rover.mode
+                Rover.mode = "rock"   
+
         elif Rover.mode == "stop":
             print("stop")
             # stop the Rover
@@ -77,7 +93,7 @@ def decision_step(Rover):
             Rover.brake = Rover.brake_set
             # if the rover is not moving rotate
             if Rover.vel <= 0.2:
-                Rover.steer = -20
+                Rover.steer = -30
                 Rover.brake = 0
                 if len(Rover.nav_angles) > Rover.go_forward:
                     Rover.mode = "stay"
@@ -86,10 +102,31 @@ def decision_step(Rover):
         elif Rover.mode == "rock":
             print("Rock")
             print("\n")
+            
+           # Rover.throttle = Rover.throttle_set / 2
+           # Rover.brake = 0
+           # print(Rover.rock_angles)
+           # if (Rover.rock_angles.any()):
+           #     Rover.steer = np.clip(np.mean(Rover.rock_angles * 180/np.pi),-8,8)
+            
+
+           # if np.mean(Rover.rock_angles) >= -0.1 and np.mean(Rover.rock_angles) <= 0.1:
+           #   Rover.steer = 0
+           #    Rover.throttle = Rover.throttle_set / 2
+           #    Rover.brake = 0
+        # if you are near a rock brake and stop moving
+           # if Rover.near_sample:
+           #     Rover.throttle = 0
+           #     Rover.brake = Rover.brake_set
+           #     Rover.steer = 0"""
+        
+                      
+                
+           
             steerterrain=0
             if(Rover.nav_angles .any()):
                 steerterrain=np.clip(np.mean(Rover.nav_angles * 180/np.pi),-8,8)
-            dist_to_rock = min(Rover.navrock_dists) 
+            dist_to_rock = min(Rover.rock_dists) 
             print(Rover.near_sample)
             if (Rover.near_sample==0) or (dist_to_rock>9):
                 # Check the extent of navigable terrain
@@ -102,20 +139,21 @@ def decision_step(Rover):
                 else: # Else coast
                     print("ana hena")
                     Rover.throttle = 0
-                    Rover.brake = 1
-                    Rover.mode = "stop"
+                    Rover.brake = 1  
                 # Set steering to average angle clipped to the range +/- 15
                 
-                Rover.steer = np.clip(np.mean(Rover.navrock_angles * 180/np.pi),-15,15) +steerterrain
+        #      Rover.steer = np.clip(np.mean(Rover.navrock_angles * 180/np.pi),-15,15) +steerterrain
 
                 
-            else: #rock is in position to be picked use brakes to stop to be able to pick it
-                    print("el else l tanya")
-                    if Rover.vel > 0:
-                        Rover.throttle = 0
-                        Rover.brake = Rover.brake_set
-                        Rover.steer = 0
+         #   else: #rock is in position to be picked use brakes to stop to be able to pick it
+         #           print("el else l tanya")
+         #           if Rover.vel > 0:
+         #               Rover.throttle = 0
+         #               Rover.brake = Rover.brake_set
+         #               Rover.steer = 0
                         #code for steering angle to move to pick rock and reach initial position
+                        
+                        
         elif Rover.mode == "stuck":
              print("stuck")
              stuck_time = Rover.total_time - Rover.first_stuck
@@ -141,10 +179,25 @@ def decision_step(Rover):
                 elif (Rover.total_time - Rover.first_stuck) > 9.0:
                     Rover.mode = "stuck"
 
+    # if the rover is near a rock and stopped pickup the rock
         if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
-            print("none")
-            Rover.steer = 0
-            Rover.brake = 0
-            Rover.send_pickup = True
-            Rover.mode == 'stuck'
-    return Rover
+               Rover.send_pickup = True
+               Rover.mode = "go-rotate"
+            
+      #       if(not Rover.just_stuck):
+      #          Rover.just_stuck = True
+      #          Rover.start_stuck_time = Rover.total_time
+      #       if(Rover.total_time - Rover.start_stuck_time > Rover.time_stuck):
+      #          Rover.mode = "stuck"
+      #  else:
+      #      Rover.just_stuck = False
+      #  if (Rover.total_time < 10):
+      #      Rover.mode = "stay"
+            
+      #  if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
+      #     print("none")
+      #      Rover.steer = 0
+      #      Rover.brake = 0
+      #      Rover.send_pickup = True
+      #     Rover.mode = "go-rotate"
+        return Rover
