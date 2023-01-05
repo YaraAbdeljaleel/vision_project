@@ -38,9 +38,13 @@ def obstacle_thresh(img,rgb_thresh=(160,160,160)):
     below_thresh = ((img[:,:,0] < rgb_thresh[0]) &
                     (img[:,:,1] < rgb_thresh[1]) &
                     (img[:,:,2] < rgb_thresh[2]))
-   
+                    
+    above_thresh = (img[:, :, 0] > 0) \
+                & (img[:,:,1] > 0) \
+                & (img[:,:,2] > 0)
+    obs = above_thresh & below_thresh
     # Index the array of zeros with the boolean array and set to 1
-    color_select[below_thresh] = 1
+    color_select[obs] = 1
     return color_select
 
 
@@ -120,7 +124,7 @@ def perception_step(Rover):
                               [image.shape[1] / 2 + dst_size, image.shape[0] - 2 * dst_size - bottom_offset],
                               [image.shape[1] / 2 - dst_size, image.shape[0] - 2 * dst_size - bottom_offset],
                               ])                              
-    thresh = (160, 142, 130)      
+    thresh = (160,142,130)      
     
     
     intentional_black = False
@@ -135,17 +139,14 @@ def perception_step(Rover):
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     navigable_threshhold = color_thresh(bird_eye, thresh)
     rock_threshhold = rock_thresh(bird_eye)
-    obstacles = obstacle_thresh(bird_eye )
-    obs_nonzero = (bird_eye[:, :, 0] != 0) \
-                  | (bird_eye[:, :, 1] != 0) \
-                  | (bird_eye[:, :, 2] != 0)
-    obs = obstacles & obs_nonzero
+    obstacles = obstacle_thresh(bird_eye, thresh)
+
 
 
     # 4) Convert map image pixel values to rover-centric coords
     nav_rov_x, nav_rov_y   = rover_coords(navigable_threshhold)
     rock_rov_x, rock_rov_y = rover_coords(rock_threshhold)
-    obs_xpix, obs_ypix     = rover_coords(obs)
+    obs_xpix, obs_ypix     = rover_coords(obstacles)
     
     
     # 5) Convert rover-centric pixel values to world coordinates
@@ -175,15 +176,22 @@ def perception_step(Rover):
     # Rover.nav_angles = rover_centric_angles
     Rover.nav_dists, Rover.nav_angles  = to_polar_coords(nav_rov_x, nav_rov_y)
     dist_rock,angles_rock=to_polar_coords(rock_rov_x, rock_rov_y)
-    if(angles_rock.any())  :
+    
+
+    if(angles_rock.any()):
         #replace the nav angles and distance of navigable terrain to that of the rock 
-        Rover.navrock_angles=angles_rock
-        Rover.navrock_dists=dist_rock
+        Rover.rock_angles=angles_rock
+        Rover.rock_dists=dist_rock
         Rover.mode = 'rock'
-    else:
+  #  else:
     #if rock was in sight and now isnt turn mode back to forward
-        if Rover.mode == 'rock':
-            Rover.mode = 'stay'
+   #     if Rover.mode == 'rock':
+    #        Rover.mode = 'stay'
+    
+    if(1 in rock_threshhold)  :
+        #replace the nav angles and distance of navigable terrain to that of the rock 
+        Rover.rock_found = True
+        
             
     if intentional_black:
         Rover.nav_angles = Rover.last_thetas
@@ -198,7 +206,7 @@ def perception_step(Rover):
         
         n1 = cv2.resize(navigable_threshhold, dim, cv2.INTER_CUBIC)
         r1 = cv2.resize(rock_threshhold, dim, cv2.INTER_CUBIC)
-        o1 = cv2.resize(obs, dim, cv2.INTER_CUBIC)
+        o1 = cv2.resize(obstacles, dim, cv2.INTER_CUBIC)
         
         rov_img = np.zeros((321, 161, 3))
         for idx, i in np.ndenumerate(nav_rov_x):
@@ -231,5 +239,5 @@ def perception_step(Rover):
         #          Rover.vision_image[:,:,2] = navigable terrain color-thresholded binary image
         Rover.vision_image[:, :, 2] = navigable_threshhold * 255
         Rover.vision_image[:, :, 1] = rock_threshhold * 255
-        Rover.vision_image[:, :, 0] = obs * 255
+        Rover.vision_image[:, :, 0] = obstacles * 255
     return Rover
