@@ -22,7 +22,10 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     return color_select
 
 def rock_thresh(img):
+
+    # threshould between rock and mountain
     not_mountain = color_thresh(img, (100,100,0))
+    # threshould between rock and nav
     not_nav = 1 - color_thresh(img, (0,0,70))
     rock = np.zeros(not_nav.shape)
     for idx, i in np.ndenumerate(not_nav):
@@ -38,10 +41,14 @@ def obstacle_thresh(img,rgb_thresh=(160,160,160)):
     below_thresh = ((img[:,:,0] < rgb_thresh[0]) &
                     (img[:,:,1] < rgb_thresh[1]) &
                     (img[:,:,2] < rgb_thresh[2]))
+
+    # values of blck pixels 
                     
     above_thresh = (img[:, :, 0] > 0) \
                 & (img[:,:,1] > 0) \
                 & (img[:,:,2] > 0)
+
+    #to identify only the obsticlase withoud expexting the black pixels as rock
     obs = above_thresh & below_thresh
     # Index the array of zeros with the boolean array and set to 1
     color_select[obs] = 1
@@ -128,6 +135,9 @@ def perception_step(Rover):
     
     
     intentional_black = False
+
+    #to increase the fidality if the pitch is larger than 1 that mean the rover tires 
+    #is about to drift so make the image black and donot save it to map
     if Rover.pitch > 1:
         intentional_black = True;
         thresh = (255,255,255)
