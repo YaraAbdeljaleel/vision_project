@@ -51,17 +51,19 @@ class RoverState():
         self.brake = 0 # Current brake value
         self.nav_angles = None # Angles of navigable terrain pixels
         self.nav_dists = None # Distances of navigable terrain pixels
+        self.rock_angles = None # Angles of rock pixels
+        self.rock_dists = None # Distances of rock pixels
         self.ground_truth = ground_truth_3d # Ground truth worldmap
-        self.mode = 'forward' # Current mode (can be forward or stop)
-        self.throttle_set = 0.2 # Throttle setting when accelerating
+        self.mode = 'go-rotate' # Current mode (can be forward or stop)
+        self.throttle_set = 0.1 # Throttle setting when accelerating
         self.brake_set = 10 # Brake setting when braking
         # The stop_forward and go_forward fields below represent total count
         # of navigable terrain pixels.  This is a very crude form of knowing
         # when you can keep going and when you should stop.  Feel free to
         # get creative in adding new fields or modifying these!
         self.stop_forward = 50 # Threshold to initiate stopping
-        self.go_forward = 500 # Threshold to go forward again
-        self.max_vel = 2 # Maximum velocity (meters/second)
+        self.go_forward = 700 # Threshold to go forward again
+        self.max_vel = 1 # Maximum velocity (meters/second)
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
         # on screen in autonomous mode
@@ -77,6 +79,11 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        self.last_thetas = None
+        self.first_stuck = None # Record the first stuck time (throttle > 0 and vel = 0)
+        self.just_got_stuck = False
+        self.time_stuck = 3.0
+        self.frame_stablize=0 # a variable to let the rover stabilize before doing action again
 # Initialize our rover 
 Rover = RoverState()
 
@@ -110,6 +117,7 @@ def telemetry(sid, data):
 
             # Execute the perception and decision steps to update the Rover's state
             Rover = perception_step(Rover)
+            Rover.last_thetas = Rover.nav_angles
             Rover = decision_step(Rover)
 
             # Create output images to send to server
